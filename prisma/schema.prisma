@@ -1,0 +1,112 @@
+generator client { provider = "prisma-client-js" }
+datasource db { provider = "postgresql"; url = env("DATABASE_URL") }
+
+enum Role { TRAVELER PARTNER ADMIN }
+enum VehicleStatus { PENDING_APPROVAL AVAILABLE BOOKED ARCHIVED }
+enum Category { LEASE SWAP }
+enum City { NAIROBI MOMBASA NAKURU }
+enum PickupType { SGR AIRPORT CITY_CENTER }
+enum DriveMode { SELF_DRIVE CHAUFFEURED }
+enum PaymentKind { LEASE SWAP_FEE }
+enum PaymentStatus { PENDING PAID FAILED }
+
+model User {
+  id        String  @id @default(cuid())
+  email     String  @unique
+  password  String
+  name      String
+  phone     String
+  role      Role    @default(TRAVELER)
+  photoUrl  String?
+  isAdmin   Boolean @default(false)
+  vehicles  Vehicle[]
+  bookings  Booking[]
+  createdAt DateTime @default(now())
+}
+
+model Vehicle {
+  id        String   @id @default(cuid())
+  owner     User     @relation(fields: [ownerId], references: [id])
+  ownerId   String
+  supplier  User?    @relation("SupplierVehicles", fields: [supplierId], references: [id])
+  supplierId String?
+  category  Category
+  status    VehicleStatus @default(PENDING_APPROVAL)
+  title     String
+  description String
+  photos    String[]
+  year      Int?
+  make      String?
+  model     String?
+  type      String?
+  fuel      String?
+  location  String
+  primaryCity City
+  pickupTypesAvailable PickupType[]
+  selfDrivePricePerDay   Int
+  chauffeuredPricePerDay Int
+  supportsChauffeured    Boolean @default(true)
+  numberPlate            String
+  numberPlateNorm        String  @unique
+  numberPlateCountry     String?
+  platePhotoUrl          String?
+  logbookUrl             String?
+  isSupplierManaged      Boolean @default(false)
+  legalOwnerName         String?
+  authorizationDocUrl    String?
+  insuranceDocUrl        String?
+  insuranceExpiry        DateTime?
+  createdAt DateTime @default(now())
+  bookings  Booking[]
+  swapFrom  SwapRequest[] @relation("FromVehicle")
+  swapTo    SwapRequest[] @relation("ToVehicle")
+}
+
+model Booking {
+  id           String   @id @default(cuid())
+  vehicle      Vehicle  @relation(fields: [vehicleId], references: [id])
+  vehicleId    String
+  renter       User     @relation(fields: [renterId], references: [id])
+  renterId     String
+  startDate    DateTime
+  endDate      DateTime
+  arrivalAt    DateTime
+  tripCity     City
+  pickupType   PickupType
+  driveMode    DriveMode
+  totalPrice   Int
+  paymentStatus PaymentStatus @default(PENDING)
+  createdAt    DateTime @default(now())
+  payments     Payment[]
+}
+
+model SwapRequest {
+  id           String   @id @default(cuid())
+  fromVehicle  Vehicle  @relation("FromVehicle", fields: [fromVehicleId], references: [id])
+  fromVehicleId String
+  toVehicle    Vehicle  @relation("ToVehicle", fields: [toVehicleId], references: [id])
+  toVehicleId  String
+  fromUser     User     @relation(fields: [fromUserId], references: [id])
+  fromUserId   String
+  toUser       User     @relation(fields: [toUserId], references: [id])
+  toUserId     String
+  feePaidFrom  Boolean  @default(false)
+  feePaidTo    Boolean  @default(false)
+  contactsExchanged Boolean @default(false)
+  createdAt    DateTime @default(now())
+  payments     Payment[]
+}
+
+model Payment {
+  id         String   @id @default(cuid())
+  kind       PaymentKind
+  status     PaymentStatus @default(PENDING)
+  amount     Int
+  currency   String   @default("KES")
+  stripeId   String?
+  booking    Booking? @relation(fields: [bookingId], references: [id])
+  bookingId  String?
+  swap       SwapRequest? @relation(fields: [swapId], references: [id])
+  swapId     String?
+  createdAt  DateTime @default(now())
+}
